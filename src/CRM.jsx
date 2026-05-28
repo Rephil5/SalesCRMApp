@@ -897,16 +897,15 @@ export default function CRM() {
               <span style={{ fontSize: '15px', fontWeight: 500 }}>Edit Salesperson Names</span>
               <button onClick={() => setShowManageTeam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--color-text-secondary)' }}>×</button>
             </div>
-            <div style={{ overflowY: 'auto', padding: '1rem 1.25rem', flex: 1 }}>
+            <div style={{ overflowY: 'auto', padding: '1rem 1.25rem', flex: 1, minHeight: 0 }}>
               {editingNames.map((name, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                   <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', width: '20px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
                   <input
                     value={name}
                     onChange={e => {
-                      const updated = [...editingNames];
-                      updated[i] = e.target.value;
-                      setEditingNames(updated);
+                      const val = e.target.value;
+                      setEditingNames(prev => { const u = [...prev]; u[i] = val; return u; });
                     }}
                     style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
                     placeholder={`Salesperson ${i + 1}`}
@@ -915,18 +914,18 @@ export default function CRM() {
               ))}
             </div>
             <div style={{ padding: '1rem 1.25rem', borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', gap: '8px' }}>
+              <button onClick={() => setShowManageTeam(false)} style={{ padding: '8px 14px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)' }}>Cancel</button>
               <button
                 onClick={() => {
                   const updated = salespeople.map((sp, i) => ({ ...sp, name: editingNames[i] || sp.name }));
                   setSalespeople(updated);
-                  localStorage.setItem(SALESPEOPLE_KEY, JSON.stringify(updated));
+                  saveData(updated, SALESPEOPLE_KEY);
                   setShowManageTeam(false);
                 }}
-                style={{ flex: 1, padding: '8px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)' }}
+                style={{ flex: 1, padding: '8px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: 'var(--color-border-primary)', color: '#fff', border: 'none' }}
               >
                 Save Names
               </button>
-              <button onClick={() => setShowManageTeam(false)} style={{ padding: '8px 14px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)' }}>Cancel</button>
             </div>
           </div>
         </div>
