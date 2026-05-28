@@ -859,6 +859,12 @@ export default function CRM() {
                       </select>
                       <button onClick={logCall} style={{ padding: '8px 14px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)' }}>log call ↗</button>
                     </div>
+                    {editStatus === 'follow up' && (
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '4px' }}>follow-up date</label>
+                        <input type="date" value={editFollowUp} onChange={(e) => setEditFollowUp(e.target.value)} style={{ width: '100%', fontSize: '13px' }} />
+                      </div>
+                    )}
                   </div>
                   <div style={{ marginTop: '1rem' }}>
                     {(crmData[selected.id]?.calls || []).length === 0 && <p style={{ fontSize: '13px', color: 'var(--color-text-secondary)' }}>no calls logged yet</p>}
