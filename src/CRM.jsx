@@ -830,26 +830,6 @@ export default function CRM() {
               )}
               {tab === 'calls' && (
                 <div>
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                    <button
-                      onClick={() => logQuickCall("Wrong number", "wrong number")}
-                      style={{ flex: 1, padding: '7px', fontSize: '12px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: '#C47A3A22', color: '#C47A3A', border: '0.5px solid #C47A3A66' }}
-                    >
-                      Wrong Number
-                    </button>
-                    <button
-                      onClick={() => logQuickCall("Sent email", "sent email")}
-                      style={{ flex: 1, padding: '7px', fontSize: '12px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: '#378ADD22', color: '#378ADD', border: '0.5px solid #378ADD66' }}
-                    >
-                      Sent Email
-                    </button>
-                    <button
-                      onClick={() => logQuickCall("Meeting set", "meeting set")}
-                      style={{ flex: 1, padding: '7px', fontSize: '12px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: '#9B59B622', color: '#9B59B6', border: '0.5px solid #9B59B666' }}
-                    >
-                      Meeting Set
-                    </button>
-                  </div>
                   <div style={{ marginBottom: '12px' }}>
                     <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '4px' }}>log a call</label>
                     <textarea value={callNote} onChange={(e) => setCallNote(e.target.value)} placeholder="what happened on this call?" style={{ width: '100%', fontSize: '13px', height: '80px', padding: '8px', boxSizing: 'border-box', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-md)', background: 'var(--color-background-secondary)', color: 'var(--color-text-primary)' }} />
