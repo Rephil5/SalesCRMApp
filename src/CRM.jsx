@@ -140,6 +140,7 @@ export default function CRM() {
   const [tab, setTab] = useState("overview");
   const [contacts, setContacts] = useState(() => initContacts(localStorage.getItem(ACTIVE_SP_KEY) || 'sp1'));
   const [importResult, setImportResult] = useState("");
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const fileInputRef = useRef(null);
 
   const spDataKey = `${STORAGE_KEY}_${activeSP}`;
@@ -150,6 +151,7 @@ export default function CRM() {
     setCrmData(initData(spDataKey));
     setContacts(initContacts(activeSP));
     setSelected(null);
+    setSelectedIds(new Set());
   }, [activeSP]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const allContacts = contacts;
@@ -297,8 +299,18 @@ export default function CRM() {
     if (!window.confirm('Remove this contact? This cannot be undone.')) return;
     const updated = contacts.filter(c => c.id !== id);
     setContacts(updated);
-    localStorage.setItem(spContactsKey, JSON.stringify(updated));
+    saveData(updated, spContactsKey);
     setSelected(null);
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+  }
+
+  function bulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} contact${selectedIds.size !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+    const updated = contacts.filter(c => !selectedIds.has(c.id));
+    setContacts(updated);
+    saveData(updated, spContactsKey);
+    setSelectedIds(new Set());
   }
 
   function handleExcelImport(e) {
@@ -333,7 +345,7 @@ export default function CRM() {
         })).filter(c => c.first || c.last);
         const updated = [...contacts, ...newContacts];
         setContacts(updated);
-        localStorage.setItem(spContactsKey, JSON.stringify(updated));
+        saveData(updated, spContactsKey);
         setImportResult(`✓ Imported ${newContacts.length} contact${newContacts.length !== 1 ? 's' : ''}`);
         setTimeout(() => setImportResult(""), 4000);
       } catch {
@@ -699,7 +711,33 @@ export default function CRM() {
             </select>
           </div>
 
-          <div style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>{filtered.length} of {allContacts.length} contacts</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '10px' }}>
+            <input
+              type="checkbox"
+              title="Select all visible"
+              checked={filtered.length > 0 && filtered.every(c => selectedIds.has(c.id))}
+              ref={el => { if (el) el.indeterminate = filtered.some(c => selectedIds.has(c.id)) && !filtered.every(c => selectedIds.has(c.id)); }}
+              onChange={e => {
+                const ids = filtered.map(c => c.id);
+                setSelectedIds(prev => {
+                  const next = new Set(prev);
+                  if (e.target.checked) ids.forEach(id => next.add(id));
+                  else ids.forEach(id => next.delete(id));
+                  return next;
+                });
+              }}
+              style={{ cursor: 'pointer', width: '15px', height: '15px', flexShrink: 0 }}
+            />
+            <span>{filtered.length} of {allContacts.length} contacts</span>
+            {selectedIds.size > 0 && (
+              <button
+                onClick={bulkDelete}
+                style={{ padding: '3px 10px', borderRadius: '8px', background: '#E24B4A22', color: '#E24B4A', border: '0.5px solid #E24B4A66', fontSize: '12px', cursor: 'pointer' }}
+              >
+                Delete {selectedIds.size} selected
+              </button>
+            )}
+          </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {filtered.map((c) => {
@@ -716,6 +754,20 @@ export default function CRM() {
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-secondary)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border-tertiary)'; }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(c.id)}
+                    onClick={e => e.stopPropagation()}
+                    onChange={e => {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev);
+                        if (e.target.checked) next.add(c.id);
+                        else next.delete(c.id);
+                        return next;
+                      });
+                    }}
+                    style={{ cursor: 'pointer', width: '15px', height: '15px', flexShrink: 0 }}
+                  />
                   <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: `${companyColor(c.company)}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 500, color: companyColor(c.company), flexShrink: 0 }}>
                     {initials(c.first, c.last)}
                   </div>
