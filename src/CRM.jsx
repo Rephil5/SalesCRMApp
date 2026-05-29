@@ -386,6 +386,31 @@ export default function CRM() {
     return { todayCount, weekCount, monthCount, todayCalls, monthByOutcome };
   }, [crmData, allContacts]);
 
+  const weekMeetingsMatrix = useMemo(() => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const todayStr = now.toLocaleDateString('en-US');
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(startOfWeek);
+      d.setDate(startOfWeek.getDate() + i);
+      const dayStr = d.toLocaleDateString('en-US');
+      const meetings = [];
+      Object.entries(crmData).forEach(([id, entry]) => {
+        (entry.calls || []).forEach(call => {
+          if (call.date === dayStr && call.status === 'meeting set') {
+            const c = allContacts.find(x => x.id === id);
+            if (c) meetings.push({ name: `${c.first} ${c.last}`, company: c.company, time: call.time });
+          }
+        });
+      });
+      meetings.sort((a, b) => a.time.localeCompare(b.time));
+      return { date: d, dayStr, label: d.toLocaleDateString('en-US', { weekday: 'short' }), shortDate: d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }), isToday: dayStr === todayStr, meetings };
+    });
+    return days;
+  }, [crmData, allContacts]);
+
   const battleStats = useMemo(() => {
     const now = new Date();
     const todayStr = now.toLocaleDateString('en-US');
@@ -625,6 +650,50 @@ export default function CRM() {
               ))}
             </div>
           )}
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '10px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-secondary)' }}>MEETINGS SET THIS WEEK</div>
+              <div style={{ fontSize: '20px', fontWeight: 600, color: '#9B59B6' }}>
+                {weekMeetingsMatrix.reduce((sum, d) => sum + d.meetings.length, 0)}
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout: 'fixed' }}>
+                <thead>
+                  <tr>
+                    {weekMeetingsMatrix.map((day, i) => (
+                      <th key={i} style={{ padding: '6px 8px', textAlign: 'left', borderBottom: `1.5px solid ${day.isToday ? '#9B59B6' : 'var(--color-border-tertiary)'}`, fontWeight: 400, minWidth: '100px' }}>
+                        <div style={{ color: day.isToday ? '#9B59B6' : 'var(--color-text-secondary)', fontWeight: day.isToday ? 600 : 400 }}>{day.label}</div>
+                        <div style={{ color: 'var(--color-text-secondary)', fontSize: '11px' }}>{day.shortDate}</div>
+                        {day.meetings.length > 0 && (
+                          <div style={{ color: '#9B59B6', fontWeight: 600, fontSize: '11px', marginTop: '2px' }}>{day.meetings.length} set</div>
+                        )}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {weekMeetingsMatrix.map((day, i) => (
+                      <td key={i} style={{ padding: '8px', verticalAlign: 'top', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+                        {day.meetings.length === 0
+                          ? <span style={{ color: 'var(--color-border-secondary)', fontSize: '13px' }}>—</span>
+                          : day.meetings.map((m, j) => (
+                            <div key={j} style={{ marginBottom: j < day.meetings.length - 1 ? '6px' : 0, padding: '5px 7px', background: '#9B59B618', borderRadius: '6px', borderLeft: '2px solid #9B59B6' }}>
+                              <div style={{ fontWeight: 500, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</div>
+                              <div style={{ color: 'var(--color-text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.company}</div>
+                              <div style={{ color: 'var(--color-text-secondary)' }}>{m.time}</div>
+                            </div>
+                          ))
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           <div>
             <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '10px', color: 'var(--color-text-secondary)' }}>TODAY'S CALLS</div>
