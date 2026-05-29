@@ -21,6 +21,8 @@ const STORAGE_KEY = "crm_data_v1";
 const CONTACTS_KEY = "crm_contacts_v1";
 const SALESPEOPLE_KEY = "crm_salespeople_v1";
 const ACTIVE_SP_KEY = "crm_active_sp_v1";
+const CREDENTIALS_KEY = "crm_credentials_v1";
+const SESSION_KEY = "crm_session_v1";
 
 // Legacy keys kept only for one-time migration of sp1's data
 const LEGACY_ADDED_KEY = "crm_added_contacts_v1";
@@ -77,6 +79,10 @@ function saveData(data, key) {
   }
 }
 
+function loadCredentials() {
+  try { return JSON.parse(localStorage.getItem(CREDENTIALS_KEY) || '{}'); } catch { return {}; }
+}
+
 function initials(first, last) {
   const a = (first || "")[0] || (last || "")[0] || "?";
   const b = (last || "")[0] || "";
@@ -122,9 +128,21 @@ export default function CRM() {
     localStorage.setItem(SALESPEOPLE_KEY, JSON.stringify(defaults));
     return defaults;
   });
-  const [activeSP, setActiveSP] = useState(() => localStorage.getItem(ACTIVE_SP_KEY) || 'sp1');
+  const [loggedInSP, setLoggedInSP] = useState(() => {
+    try { return localStorage.getItem(SESSION_KEY) || null; } catch { return null; }
+  });
+  const [loginSPId, setLoginSPId] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [activeSP, setActiveSP] = useState(() => {
+    try {
+      const session = localStorage.getItem(SESSION_KEY);
+      return session || localStorage.getItem(ACTIVE_SP_KEY) || 'sp1';
+    } catch { return 'sp1'; }
+  });
   const [showManageTeam, setShowManageTeam] = useState(false);
   const [editingNames, setEditingNames] = useState([]);
+  const [editingPasswords, setEditingPasswords] = useState([]);
 
   const [crmData, setCrmData] = useState(() => initData(`${STORAGE_KEY}_${localStorage.getItem(ACTIVE_SP_KEY) || 'sp1'}`));
   const [search, setSearch] = useState("");
@@ -313,6 +331,26 @@ export default function CRM() {
     setSelectedIds(new Set());
   }
 
+  function handleLogin() {
+    if (!loginSPId) { setLoginError('Please select your name.'); return; }
+    const creds = loadCredentials();
+    const stored = creds[loginSPId]?.password || '';
+    if (stored && loginPassword !== stored) { setLoginError('Incorrect password.'); return; }
+    try { localStorage.setItem(SESSION_KEY, loginSPId); } catch {}
+    setLoggedInSP(loginSPId);
+    setActiveSP(loginSPId);
+    setLoginPassword('');
+    setLoginError('');
+  }
+
+  function handleLogout() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+    setLoggedInSP(null);
+    setLoginSPId('');
+    setLoginPassword('');
+    setLoginError('');
+  }
+
   function handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -452,32 +490,55 @@ export default function CRM() {
       <h2 style={{ position: 'absolute', left: '-9999px', top: 'auto', width: '1px', height: '1px', overflow: 'hidden' }}>Sales CRM — {allContacts.length} contacts</h2>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '1rem', paddingBottom: '10px', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-        <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginRight: '2px', flexShrink: 0 }}>viewing as:</span>
-        {salespeople.map(sp => (
-          <button
-            key={sp.id}
-            onClick={() => setActiveSP(sp.id)}
-            style={{
-              padding: '4px 12px',
-              borderRadius: '20px',
-              border: `0.5px solid ${activeSP === sp.id ? 'var(--color-border-primary)' : 'var(--color-border-tertiary)'}`,
-              background: activeSP === sp.id ? 'var(--color-background-secondary)' : 'transparent',
-              fontSize: '12px',
-              cursor: 'pointer',
-              color: activeSP === sp.id ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-              whiteSpace: 'nowrap',
-              fontWeight: activeSP === sp.id ? 500 : 400,
-            }}
-          >
-            {sp.name}
-          </button>
-        ))}
-        <button
-          onClick={() => { setEditingNames(salespeople.map(s => s.name)); setShowManageTeam(true); }}
-          style={{ padding: '4px 10px', borderRadius: '20px', border: '0.5px solid var(--color-border-tertiary)', background: 'transparent', fontSize: '12px', cursor: 'pointer', color: 'var(--color-text-secondary)', marginLeft: '4px' }}
-        >
-          ✎ Edit Names
-        </button>
+        {loggedInSP ? (
+          <>
+            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', flexShrink: 0 }}>signed in as:</span>
+            <span style={{ padding: '4px 12px', borderRadius: '20px', border: '0.5px solid var(--color-border-primary)', background: 'var(--color-background-secondary)', fontSize: '12px', fontWeight: 500, color: 'var(--color-text-primary)' }}>
+              {salespeople.find(s => s.id === loggedInSP)?.name || loggedInSP}
+            </span>
+            <button
+              onClick={() => { const c = loadCredentials(); setEditingNames(salespeople.map(s => s.name)); setEditingPasswords(salespeople.map(s => c[s.id]?.password || '')); setShowManageTeam(true); }}
+              style={{ padding: '4px 10px', borderRadius: '20px', border: '0.5px solid var(--color-border-tertiary)', background: 'transparent', fontSize: '12px', cursor: 'pointer', color: 'var(--color-text-secondary)', marginLeft: '4px' }}
+            >
+              ✎ Edit Names
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{ padding: '4px 12px', borderRadius: '20px', border: '0.5px solid var(--color-border-tertiary)', background: 'transparent', fontSize: '12px', cursor: 'pointer', color: 'var(--color-text-secondary)', marginLeft: 'auto' }}
+            >
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', marginRight: '2px', flexShrink: 0 }}>viewing as:</span>
+            {salespeople.map(sp => (
+              <button
+                key={sp.id}
+                onClick={() => setActiveSP(sp.id)}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  border: `0.5px solid ${activeSP === sp.id ? 'var(--color-border-primary)' : 'var(--color-border-tertiary)'}`,
+                  background: activeSP === sp.id ? 'var(--color-background-secondary)' : 'transparent',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  color: activeSP === sp.id ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  whiteSpace: 'nowrap',
+                  fontWeight: activeSP === sp.id ? 500 : 400,
+                }}
+              >
+                {sp.name}
+              </button>
+            ))}
+            <button
+              onClick={() => { const c = loadCredentials(); setEditingNames(salespeople.map(s => s.name)); setEditingPasswords(salespeople.map(s => c[s.id]?.password || '')); setShowManageTeam(true); }}
+              style={{ padding: '4px 10px', borderRadius: '20px', border: '0.5px solid var(--color-border-tertiary)', background: 'transparent', fontSize: '12px', cursor: 'pointer', color: 'var(--color-text-secondary)', marginLeft: '4px' }}
+            >
+              ✎ Edit Names
+            </button>
+          </>
+        )}
       </div>
 
       <div style={outerGridStyle}>
@@ -999,12 +1060,17 @@ export default function CRM() {
 
       {showManageTeam && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px' }}>
-          <div style={{ background: 'var(--color-background-primary)', borderRadius: 'var(--border-radius-lg)', border: '0.5px solid var(--color-border-tertiary)', width: '100%', maxWidth: '420px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: 'var(--color-background-primary)', borderRadius: 'var(--border-radius-lg)', border: '0.5px solid var(--color-border-tertiary)', width: '100%', maxWidth: '520px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-              <span style={{ fontSize: '15px', fontWeight: 500 }}>Edit Salesperson Names</span>
+              <span style={{ fontSize: '15px', fontWeight: 500 }}>Edit Names & Passwords</span>
               <button onClick={() => setShowManageTeam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: 'var(--color-text-secondary)' }}>×</button>
             </div>
-            <div style={{ overflowY: 'auto', padding: '1rem 1.25rem', flex: 1, minHeight: 0 }}>
+            <div style={{ display: 'flex', gap: '10px', padding: '6px 1.25rem', borderBottom: '0.5px solid var(--color-border-tertiary)', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
+              <span style={{ width: '20px', flexShrink: 0 }} />
+              <span style={{ flex: 1 }}>Name</span>
+              <span style={{ width: '150px', flexShrink: 0 }}>Password</span>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '0.75rem 1.25rem', flex: 1, minHeight: 0 }}>
               {editingNames.map((name, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                   <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', width: '20px', textAlign: 'right', flexShrink: 0 }}>{i + 1}</span>
@@ -1017,6 +1083,16 @@ export default function CRM() {
                     style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
                     placeholder={`Salesperson ${i + 1}`}
                   />
+                  <input
+                    type="password"
+                    value={editingPasswords[i] || ''}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEditingPasswords(prev => { const u = [...prev]; u[i] = val; return u; });
+                    }}
+                    style={{ width: '150px', flexShrink: 0, fontSize: '13px', padding: '6px 10px' }}
+                    placeholder="set password…"
+                  />
                 </div>
               ))}
             </div>
@@ -1027,13 +1103,61 @@ export default function CRM() {
                   const updated = salespeople.map((sp, i) => ({ ...sp, name: editingNames[i] || sp.name }));
                   setSalespeople(updated);
                   saveData(updated, SALESPEOPLE_KEY);
+                  const creds = loadCredentials();
+                  updated.forEach((sp, i) => { creds[sp.id] = { ...creds[sp.id], password: editingPasswords[i] || '' }; });
+                  try { localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(creds)); } catch {}
                   setShowManageTeam(false);
                 }}
                 style={{ flex: 1, padding: '8px', fontSize: '13px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: 'var(--color-border-primary)', color: '#fff', border: 'none' }}
               >
-                Save Names
+                Save
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {!loggedInSP && (
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}>
+          <div style={{ background: 'var(--color-background-primary)', borderRadius: 'var(--border-radius-lg)', border: '0.5px solid var(--color-border-tertiary)', width: '100%', maxWidth: '360px', padding: '2rem' }}>
+            <div style={{ fontSize: '22px', fontWeight: 600, marginBottom: '4px' }}>Sales CRM</div>
+            <div style={{ fontSize: '13px', color: 'var(--color-text-secondary)', marginBottom: '1.75rem' }}>Sign in to continue</div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '5px' }}>Your name</label>
+              <select
+                value={loginSPId}
+                onChange={e => { setLoginSPId(e.target.value); setLoginError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                style={{ width: '100%', fontSize: '13px' }}
+              >
+                <option value="">Select your name…</option>
+                {salespeople.map(sp => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '6px' }}>
+              <label style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '5px' }}>Password</label>
+              <input
+                type="password"
+                value={loginPassword}
+                onChange={e => { setLoginPassword(e.target.value); setLoginError(''); }}
+                onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                placeholder="Leave blank if none set"
+                style={{ width: '100%', fontSize: '13px' }}
+              />
+            </div>
+
+            {loginError && (
+              <div style={{ fontSize: '12px', color: 'var(--color-text-danger)', marginBottom: '10px' }}>{loginError}</div>
+            )}
+
+            <button
+              onClick={handleLogin}
+              style={{ width: '100%', padding: '10px', fontSize: '14px', cursor: 'pointer', borderRadius: 'var(--border-radius-md)', background: 'var(--color-border-primary)', color: '#fff', border: 'none', marginTop: '10px', fontWeight: 500 }}
+            >
+              Sign In
+            </button>
           </div>
         </div>
       )}
